@@ -1,9 +1,15 @@
+
 import sounddevice as sd
 from scipy.io.wavfile import write
 import numpy as np
 import os
-from twilio.rest import Client
 import librosa
+from twilio.rest import Client
+import tkinter as tk
+from tkinter import messagebox
+import threading
+import keras
+
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -13,12 +19,9 @@ from keras.models import load_model
 # Twilio SMS function
 def send_sms(to_number, message_body):
     try:
-        # Replace with your Twilio credentials (preferably from environment variables)
-        account_sid = 'ACb3352027ff10eacadc0df9f68dff6445'  # Replace with your Twilio Account SID
-        auth_token = 'f351900136f69e4b84c5d574154c5a0f'    # Replace with your Twilio Auth Token
-        twilio_number = '+14159497179'  # Replace with your Twilio phone number
-        
-
+        account_sid = 'ACb3352027ff10eacadc0df9f68dff6445'
+        auth_token = 'f351900136f69e4b84c5d574154c5a0f'
+        twilio_number = '+14159497179'
         client = Client(account_sid, auth_token)
         message = client.messages.create(
             body=message_body,
@@ -29,7 +32,7 @@ def send_sms(to_number, message_body):
     except Exception as e:
         print(f"Error sending SMS: {e}")
 
-# Function to extract features from audio
+# Function to extract features from the audio
 def extract_features(file):
     try:
         audio, sample_rate = librosa.load(file, res_type='kaiser_fast')
@@ -39,59 +42,56 @@ def extract_features(file):
         print(f"Error encountered while parsing file: {e}")
         return None
 
-# Function to predict scream using pre-trained model
+# Function to predict scream (using your pre-trained model)
 def predict_scream(file, model):
     mfccs = extract_features(file)
     if mfccs is not None:
         mfccs = mfccs.reshape(1, mfccs.shape[0], 1, 1)
         prediction = model.predict(mfccs)
-        if prediction > 0.5:  # Assuming > 0.5 means "scream detected"
+        if prediction > 0.5:
             return True
         else:
             return False
-    else:
-        return None
+    return None
 
-# Record voice in real-time
+# Function to record voice
 def record_voice(filename='output.wav', duration=5, fs=44100):
     print(f"Recording for {duration} seconds...")
     voice_data = sd.rec(int(duration * fs), samplerate=fs, channels=2)
-    sd.wait()  # Wait until recording is finished
-    write(filename, fs, voice_data)  # Save as WAV file
+    sd.wait()
+    write(filename, fs, voice_data)
     print(f"Recording saved to {filename}")
 
-# Real-time interaction loop with user
-def interact_with_user(model, emergency_contacts):
-    while True:
-        print("\nPress 'r' to record a 5-second audio sample or 'q' to quit:")
-        user_input = input().lower()
-        if user_input == 'r':
-            voice_file = 'output.wav'
-            record_voice(voice_file)
-            
-            # Step 1: Predict if scream is detected
-            result = predict_scream(voice_file, model)
-            if result == True:
-                print("Threat detected! Sending SMS to emergency contacts.")
-                message = "Emergency! Threat detected. Please take immediate action."
-                for contact in emergency_contacts:
-                    send_sms(contact, message)
-            elif result == False:
-                print("No scream detected.")
-            else:
-                print("Error in processing audio.")
-        elif user_input == 'q':
-            print("Exiting the program.")
-            break
-        else:
-            print("Invalid input. Please press 'r' to record or 'q' to quit.")
+# GUI functionality
+def start_recording():
+    record_voice('output.wav')
+    status_label.config(text="Audio recorded, predicting...")
+    threading.Thread(target=process_audio).start()
 
-# Replace with actual emergency contacts (user-defined)
-emergency_contacts = [
-    "+916005748700",
-    "+917006902591"
-]
+def process_audio():
+    result = predict_scream('output.wav', model)
+    if result:
+        status_label.config(text="Scream detected! Sending SMS...")
+        message = "Emergency! Threat detected."
+        for contact in emergency_contacts:
+            send_sms(contact, message)
+        messagebox.showwarning("Threat Detected", "Scream detected! SMS sent to emergency contacts.")
+    else:
+        status_label.config(text="No scream detected.")
 
+# GUI setup
+root = tk.Tk()
+root.title("Scream Detection System")
+
+# Labels and buttons
+status_label = tk.Label(root, text="Press 'Record' to start", font=("Helvetica", 14))
+status_label.pack(pady=20)
+
+record_button = tk.Button(root, text="Record", font=("Helvetica", 14), command=start_recording)
+record_button.pack(pady=20)
+
+# Emergency contacts
+emergency_contacts = ["+916005748700", "+917006902591"]
 # Path to your dataset (make sure to update with correct paths)
 scream_files = [f'C:\\Users\\Dell\\Desktop\\fowzan\\Converted_Separately\\scream\\{file}' for file in os.listdir(r'C:\Users\Dell\Desktop\fowzan\Converted_Separately\scream') if file.endswith('.wav')]
 non_scream_files = [f'C:\\Users\\Dell\\Desktop\\fowzan\\Converted_Separately\\non_scream\\{file}' for file in os.listdir(r'C:\Users\Dell\Desktop\fowzan\Converted_Separately\non_scream') if file.endswith('.wav')]
@@ -172,4 +172,10 @@ model.save('scream_detection_model.h5')
 model = load_model('scream_detection_model.h5')
 
 # Start interaction with user
-interact_with_user(model, emergency_contacts)
+
+
+# Load your pre-trained model here
+#model = load_your_model_function()  # Add your model loading function
+
+# Start GUI loop
+root.mainloop()
