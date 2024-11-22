@@ -13,10 +13,10 @@ from keras.models import load_model
 # Twilio SMS function
 def send_sms(to_number, message_body):
     try:
-        # Replace with your Twilio credentials (preferably from environment variables)
-        account_sid = 'ACb3352027ff10eacadc0df9f68dff6445'  # Replace with your Twilio Account SID
-        auth_token = 'f351900136f69e4b84c5d574154c5a0f'    # Replace with your Twilio Auth Token
-        twilio_number = '+14159497179'  # Replace with your Twilio phone number
+        
+        account_sid = 'ACb3352027ff10eacadc0df9f68dff6445' 
+        auth_token = 'f351900136f69e4b84c5d574154c5a0f'    
+        twilio_number = '+14159497179' 
         
 
         client = Client(account_sid, auth_token)
